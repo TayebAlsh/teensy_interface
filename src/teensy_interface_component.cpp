@@ -80,8 +80,8 @@ TeensyInterfaceComponent::TeensyInterfaceComponent(const rclcpp::NodeOptions & o
 //////////////////
 void TeensyInterfaceComponent::udpCb(const UDPServer::UDPMsg & msg)
 {
-  // Lin_acc(3) + Ang_vel(3) + Quat(4) + depth(1) + temp(1) + leak(1) + servo(5)
-  constexpr std::size_t msgLen = (3+3+4+1+1+1+5) * 4;
+  // Lin_acc(3) + Ang_vel(3) + Quat(4) + depth(1) + temp(1) + leak(1)
+  constexpr std::size_t msgLen = (3+3+4+1+1+1) * 4;
 
   if (msg.data.size() != msgLen) {
     RCLCPP_ERROR(
@@ -89,6 +89,55 @@ void TeensyInterfaceComponent::udpCb(const UDPServer::UDPMsg & msg)
       msgLen, msg.data.size());
     throw std::runtime_error("Teensy UDP message has incorrect size.");
   }
+
+  std::size_t offset = 0;
+
+  auto read_float = [&msg, &offset]() {
+    float value;
+    std::memcpy(&value, msg.data.data() + offset, sizeof(float));
+    offset += sizeof(float);
+    return value;
+  };
+
+  // Read and print linear acceleration
+  float lin_acc[3];
+  for (int i = 0; i < 3; ++i) {
+    lin_acc[i] = read_float();
+  }
+  RCLCPP_INFO(get_logger(), "Linear Acceleration: x=%.2f, y=%.2f, z=%.2f", lin_acc[0], lin_acc[1], lin_acc[2]);
+
+  // Read and print angular velocity
+  float ang_vel[3];
+  for (int i = 0; i < 3; ++i) {
+    ang_vel[i] = read_float();
+  }
+  RCLCPP_INFO(get_logger(), "Angular Velocity: x=%.2f, y=%.2f, z=%.2f", ang_vel[0], ang_vel[1], ang_vel[2]);
+
+  // Read and print quaternion
+  float quat[4];
+  for (int i = 0; i < 4; ++i) {
+    quat[i] = read_float();
+  }
+  RCLCPP_INFO(get_logger(), "Quaternion: x=%.2f, y=%.2f, z=%.2f, w=%.2f", quat[0], quat[1], quat[2], quat[3]);
+
+  // Read and print depth
+  float depth = read_float();
+  RCLCPP_INFO(get_logger(), "Depth: %.2f", depth);
+
+  // Read and print temperature
+  float temp = read_float();
+  RCLCPP_INFO(get_logger(), "Temperature: %.2f", temp);
+
+  // Read and print leak
+  float leak = read_float();
+  RCLCPP_INFO(get_logger(), "Leak: %.2f", leak);
+
+  // Read and print additional data
+  float additional_data[5];
+  for (int i = 0; i < 5; ++i) {
+    additional_data[i] = read_float();
+  }
+  RCLCPP_INFO(get_logger(), "Additional Data: d1=%.2f, d2=%.2f, d3=%.2f, d4=%.2f, d5=%.2f", additional_data[0], additional_data[1], additional_data[2], additional_data[3], additional_data[4]);
 
   std::size_t oft = 0;
   const auto tNow = now();
@@ -139,48 +188,6 @@ void TeensyInterfaceComponent::udpCb(const UDPServer::UDPMsg & msg)
   leakMsg.leak = (*(reinterpret_cast<const float *>(msg.data.data() + oft)));
   oft += 4;
   pubLeak_->publish(std::move(leakMsg));
-
-
-  /////////////////
-  // Servo Feedback
-  
-  atl_msgs::msg::ServoFeedback servoMsg1;
-  servoMsg1.header.stamp = tNow;
-  servoMsg1.delta = (*(reinterpret_cast<const float *>(msg.data.data() + oft)));
-  servoFeedback1_ = servoMsg1.delta;
-  oft += 4;
-  atl_msgs::msg::ServoFeedback servoMsg2;
-  servoMsg2.header.stamp = tNow;
-  servoMsg2.delta = (*(reinterpret_cast<const float *>(msg.data.data() + oft)));
-  servoFeedback2_ = servoMsg2.delta;
-  oft += 4;
-  atl_msgs::msg::ServoFeedback servoMsg3;
-  servoMsg3.header.stamp = tNow;
-  servoMsg3.delta = (*(reinterpret_cast<const float *>(msg.data.data() + oft)));
-  servoFeedback3_ = servoMsg3.delta;
-  oft += 4;
-  atl_msgs::msg::ServoFeedback servoMsg4;
-  servoMsg4.header.stamp = tNow;
-  servoMsg4.delta = (*(reinterpret_cast<const float *>(msg.data.data() + oft)));
-  servoFeedback4_ = servoMsg4.delta;
-  oft += 4;
-  atl_msgs::msg::ServoFeedback servoMsg5;
-  servoMsg5.header.stamp = tNow;
-  servoMsg5.delta = (*(reinterpret_cast<const float *>(msg.data.data() + oft)));
-  servoFeedback5_ = servoMsg5.delta;
-  oft += 4;
-
-
-  atl_msgs::msg::ServosFeedback servosMsg;
-  servosMsg.feedback.resize(5);
-
-  servosMsg.feedback[0] = servoMsg1;
-  servosMsg.feedback[1] = servoMsg2;
-  servosMsg.feedback[2] = servoMsg3;
-  servosMsg.feedback[3] = servoMsg4;
-  servosMsg.feedback[4] = servoMsg5;
-  
-  pubServosFeedback_->publish(std::move(servosMsg));
 
 
   /////////////
