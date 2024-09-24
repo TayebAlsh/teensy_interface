@@ -146,6 +146,14 @@ void TeensyInterfaceComponent::udpCb(const UDPServer::UDPMsg & msg)
   // IMU Data
   sensor_msgs::msg::Imu imuMsg;
   imuMsg.header.stamp = tNow;
+
+  //syed changes *start here*
+
+  imuMsg.header.frame_id = "imu_link";  // Set to your desired frame name
+
+  //*ends here"
+
+
   // imuMsg.status - to do in the future.
   imuMsg.linear_acceleration.x = (*(reinterpret_cast<const float *>(msg.data.data() + oft)));
   oft += 4;
@@ -199,6 +207,30 @@ void TeensyInterfaceComponent::udpCb(const UDPServer::UDPMsg & msg)
   geometry_msgs::msg::TransformStamped t_act2;
   geometry_msgs::msg::TransformStamped t_act3;
 
+
+
+  //syed changes "starts here"
+
+  geometry_msgs::msg::TransformStamped t_imu;
+  t_imu.header.stamp = tNow;
+  t_imu.header.frame_id = "boat";  // Base frame of the robot
+  t_imu.child_frame_id = "imu_link";    // IMU frame
+
+    // Optional translation, adjust based on where the IMU is mounted on the robot
+  t_imu.transform.translation.x = 0.0;
+  t_imu.transform.translation.y = 0.0;
+  t_imu.transform.translation.z = 0.0;
+
+    // Apply orientation from the IMU message
+  t_imu.transform.rotation.x = imuMsg.orientation.x;
+  t_imu.transform.rotation.y = imuMsg.orientation.y;
+  t_imu.transform.rotation.z = imuMsg.orientation.z;
+  t_imu.transform.rotation.w = imuMsg.orientation.w;
+
+    // Broadcast the IMU transformation
+  tf_broadBoat_->sendTransform(t_imu);
+
+
   // --------- boat
   t_boat.header.stamp = tNow;
   t_boat.header.frame_id = "world";
@@ -222,7 +254,7 @@ void TeensyInterfaceComponent::udpCb(const UDPServer::UDPMsg & msg)
   t_body.header.frame_id = "boat";
   t_body.child_frame_id = "paravane";
   // Paravane Translation
-  t_body.transform.translation.x = -5.0;
+  t_body.transform.translation.x = 0.0;
   t_body.transform.translation.y = 0.0;
   t_body.transform.translation.z = -depthMsg.depth;
   // Paravane Rotation
