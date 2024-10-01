@@ -19,6 +19,7 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "tf2/LinearMath/Quaternion.h"
+#include "visualization_msgs/msg/marker.hpp"
 
 #include <optional>
 #include <memory>
@@ -73,17 +74,21 @@ public:
 private:
   // Subscriptions
   rclcpp::Subscription<atl_msgs::msg::ServosInput>::SharedPtr subServosInput_;
+  rclcpp::Subscription<atl_msgs::msg::Depth>::SharedPtr depth_subscription_; // Added
 
   // Publishers
   rclcpp::Publisher<atl_msgs::msg::Depth>::SharedPtr pubDepth_;
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr pubImu_;
   rclcpp::Publisher<atl_msgs::msg::Leak>::SharedPtr pubLeak_;
   rclcpp::Publisher<atl_msgs::msg::ServosFeedback>::SharedPtr pubServosFeedback_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_publisher_; // Added
 
   // Callbacks
   void subServosInputCb(atl_msgs::msg::ServosInput::SharedPtr && msg);
   void udpCb(const UDPServer::UDPMsg & msg);
+  void depthCallback(const atl_msgs::msg::Depth::SharedPtr msg);
 
+  
   // State Variables
   std::unique_ptr<UDPServer> udp_;
   uint64_t t0_;

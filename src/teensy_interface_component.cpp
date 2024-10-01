@@ -14,6 +14,8 @@
 #include <exception>
 #include <cerrno>
 #include <utility>
+#include "visualization_msgs/msg/marker.hpp"
+#include "atl_msgs/msg/depth.hpp"
 
 using std::string;
 
@@ -70,6 +72,18 @@ TeensyInterfaceComponent::TeensyInterfaceComponent(const rclcpp::NodeOptions & o
   tf_broadBody_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
   tf_broadActuator1_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
   tf_broadActuator2_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+
+  depth_subscription_ = this->create_subscription<atl_msgs::msg::Depth>(
+    "/depth",
+    rclcpp::SensorDataQoS().keep_last(100), // Increase this number based on your needs
+    std::bind(&TeensyInterfaceComponent::depthCallback, this, std::placeholders::_1)
+   );
+
+  // Publisher for the Marker message
+  marker_publisher_ = this->create_publisher<visualization_msgs::msg::Marker>("/depth_marker", 100);
+
+
+
 
   RCLCPP_INFO(get_logger(), "Teensy Interface Node started");
 }
@@ -389,6 +403,37 @@ void TeensyInterfaceComponent::subServosInputCb(atl_msgs::msg::ServosInput::Shar
 
   udp_->sendMsg(u);
 }
+
+
+void TeensyInterfaceComponent::depthCallback(const atl_msgs::msg::Depth::SharedPtr msg)
+{
+    // Create a text marker to display the depth value
+    visualization_msgs::msg::Marker marker;
+    marker.header.frame_id = "world";  // Frame for the marker
+    marker.header.stamp = this->get_clock()->now();
+    marker.ns = "depth_marker";
+    marker.id = 0;
+    marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
+    marker.action = visualization_msgs::msg::Marker::ADD;
+
+    // Set marker position in the world
+    marker.pose.position.x = 0.0; // Adjust as needed
+    marker.pose.position.y = 0.0; // Adjust as needed
+    marker.pose.position.z = 2.0; // Adjust as needed (above the boat)
+    marker.scale.z = 0.2; // Text size
+
+    // Set marker color
+    marker.color.a = 1.0; // Alpha
+    marker.color.r = 1.0; // Red
+    marker.color.g = 1.0; // Green
+    marker.color.b = 1.0; // Blue
+
+    // Set the marker text to show depth
+    marker.text = "Depth: " + std::to_string(msg->depth) + " m\nTemp: " + std::to_string(msg->temperature) + " C";
+    // Publish the marker
+    marker_publisher_->publish(marker);
+}
+
 
 }  // namespace atl
 
